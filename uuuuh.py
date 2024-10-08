@@ -4,13 +4,11 @@ import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
 import undetected_chromedriver as uc
-import pyautogui
 import keyboard
 import sys
 import threading
-from PIL import ImageGrab
+import subprocess
 
 class PixivDownloader:
     def __init__(self, username=None, password=None, output_folder='downloaded_images'):
@@ -37,10 +35,7 @@ class PixivDownloader:
         # Создание папки для изображений
         os.makedirs(self.output_folder, exist_ok=True)
         self.absolute_path = os.path.abspath(self.output_folder)  # Преобразуем в полный путь
-
-        # Проверка длины путей
-        if len(self.absolute_path) < len(self.output_folder):
-            raise Exception("Что-то пошло не так")
+        os.chdir(self.output_folder)
 
     def login(self):
         # Открываем главную страницу для установки куков
@@ -73,23 +68,46 @@ class PixivDownloader:
 
             elements = self.driver.find_elements(By.CSS_SELECTOR, 'li > div > div:first-child > div > a')
             time.sleep(2)
-
-            # Имитация скачивания изображения через контекстное меню
-            action = ActionChains(self.driver)
-
+            
+            # Сохраняем ссылки на арты на странице
+            pageHrefs = []
             for element in elements:
-                action.context_click(element).perform()
-                [pyautogui.press('down') for _ in range(9)]
-                time.sleep(0.2)
-                pyautogui.press('enter')
-                urlLocal = f"./downloaded_images/{element.get_attribute('href').split('/')[-1]}.png"
-                ImageGrab.grabclipboard().save(urlLocal) if ImageGrab.grabclipboard() else print("Нет изображения в буфере")
-                time.sleep(1)
+                pageHrefs.append(element.get_attribute('href'))
+
+            for art in pageHrefs:
+                try:
+                    self.driver.get(art)
+                    time.sleep(3)
+
+                    showAllButtons = self.driver.find_elements(By.CSS_SELECTOR, '.sc-ye57th-1 > button')
+                    if showAllButtons: showAllButtons[0].click()
+
+                    highRef = WebDriverWait(self.driver, 5).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, '.gtm-medium-work-expanded-view div a'))
+                    )
+
+                    curl_command = [
+                        "curl", highRef.get_attribute('href'),
+                        "-H", "referer: https://www.pixiv.net/",
+                        "-O", 
+                    ]
+
+                    print(highRef.get_attribute('href'))
+                    result = subprocess.run(curl_command, capture_output=True, text=True)
+
+                    print("Return Code:", result.returncode)
+                    if result.returncode == 0:
+                        print("Команда успешно выполнена")
+                    else:
+                        print("Ошибка выполнения команды")
+                        print("Ошибка:", result.stderr)
+                except Exception as e:
+                    print(f"Что пошло не так - art: {e}")
                 
         except Exception as e:
-            print(f"Не удалось найти изображение на странице {url}: {e}")
+            print(f"Что пошло не так - page: {e}")
 
-    def download_images_from_urls(self, urls):
+    def download_images_from_urls(self):
         for url in [f"https://www.pixiv.net/en/users/95678549/bookmarks/artworks?p={i}" for i in range(1, 25)]:
             if self.stop_flag:  # Проверка флага остановки
                 print("Процесс был остановлен.")
@@ -132,16 +150,11 @@ if __name__ == "__main__":
     username = args.l
     password = args.p
 
-    pyautogui.PAUSE = 0.1
-    # Чтение ссылок из файла
-    with open('urls.txt', 'r') as file:
-        links = [line.strip() for line in file]
-
     # Инициализация загрузчика
     downloader = PixivDownloader(username, password)
 
     # Загрузка изображений по ссылкам
-    downloader.download_images_from_urls(links)
+    downloader.download_images_from_urls()
 
     # Завершение работы
     downloader.close()
