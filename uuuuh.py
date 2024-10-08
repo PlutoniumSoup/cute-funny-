@@ -10,7 +10,7 @@ import pyautogui
 import keyboard
 import sys
 import threading
-
+from PIL import ImageGrab
 
 class PixivDownloader:
     def __init__(self, username=None, password=None, output_folder='downloaded_images'):
@@ -56,6 +56,7 @@ class PixivDownloader:
         # Нажимаем кнопку входа
         self.driver.find_element(By.XPATH, '//*[@id="app-mount-point"]/div/div/div[4]/div[1]/form/button[1]').click()
         time.sleep(2)
+        if self.driver.find_elements(By.XPATH, '//*[@id="app-mount-point"]/div/div/div[4]/div[1]/form/div[3]'): time.sleep(40)
 
     def download_image(self, url):
         if self.stop_flag:
@@ -63,49 +64,33 @@ class PixivDownloader:
         try:
             # Открываем ссылку
             self.driver.get(url)
+            time.sleep(4)
 
             # Ожидаем, пока изображение станет доступным
-            image_element = WebDriverWait(self.driver, 5).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, '.gtm-medium-work-expanded-view div img'))
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'li > div > div:first-child > div > a img'))
             )
 
-            # Печатаем найденный элемент
-            print(f"Найден элемент: {image_element}")
+            elements = self.driver.find_elements(By.CSS_SELECTOR, 'li > div > div:first-child > div > a')
+            time.sleep(2)
 
             # Имитация скачивания изображения через контекстное меню
-            time.sleep(3)
             action = ActionChains(self.driver)
-            action.context_click(image_element).perform()
 
-            # Навигация в меню с помощью pyautogui
-            [pyautogui.press('down') for _ in range(8 if self.username and self.password else 2)]
-            pyautogui.press('enter')
-
-            if self.firstT_flag:
-                time.sleep(2)
-
-                # Ввод пути для сохранения изображения
-                [pyautogui.hotkey('shift', 'tab') for _ in range(5)]
+            for element in elements:
+                action.context_click(element).perform()
+                [pyautogui.press('down') for _ in range(9)]
+                time.sleep(0.2)
                 pyautogui.press('enter')
+                urlLocal = f"./downloaded_images/{element.get_attribute('href').split('/')[-1]}.png"
+                ImageGrab.grabclipboard().save(urlLocal) if ImageGrab.grabclipboard() else print("Нет изображения в буфере")
                 time.sleep(1)
-                pyautogui.write(self.absolute_path)
-                time.sleep(1)
-                pyautogui.press('enter')
-
-                # Завершающие действия
-                [pyautogui.press('tab') for _ in range(8)]
-                time.sleep(1)
-                self.firstT_flag = False
-            else:
-                time.sleep(1.5)
-            pyautogui.press('enter')
-
-            print(f"Скачано изображение с {url}")
+                
         except Exception as e:
             print(f"Не удалось найти изображение на странице {url}: {e}")
 
     def download_images_from_urls(self, urls):
-        for url in urls:
+        for url in [f"https://www.pixiv.net/en/users/95678549/bookmarks/artworks?p={i}" for i in range(1, 25)]:
             if self.stop_flag:  # Проверка флага остановки
                 print("Процесс был остановлен.")
                 break
@@ -140,13 +125,14 @@ if __name__ == "__main__":
     # Данные для входа
     # Создаем парсер
     parser = argparse.ArgumentParser()
-    parser.add_argument('--param1', type=str, help='Логин', default=None)
-    parser.add_argument('--param2', type=str, help='Пароль', default=None)
+    parser.add_argument('--l', type=str, help='Логин', default=None)
+    parser.add_argument('--p', type=str, help='Пароль', default=None)
     args = parser.parse_args()
 
-    username = args.param1
-    password = args.param2
+    username = args.l
+    password = args.p
 
+    pyautogui.PAUSE = 0.1
     # Чтение ссылок из файла
     with open('urls.txt', 'r') as file:
         links = [line.strip() for line in file]
