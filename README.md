@@ -7,4 +7,4 @@
 - Generative code included of course (4o mini)
 
 # Using example
-python --l "<login>" --p "<password>"
+python --l "\<login\>" --p "\<password\>"
