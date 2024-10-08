@@ -1,3 +1,4 @@
+import argparse
 import os
 import time
 from selenium.webdriver.common.by import By
@@ -12,14 +13,14 @@ import threading
 
 
 class PixivDownloader:
-    def __init__(self, username, password, output_folder='downloaded_images'):
+    def __init__(self, username=None, password=None, output_folder='downloaded_images'):
         self.username = username
         self.password = password
         self.output_folder = output_folder
         self.driver = None
+        self.firstT_flag = True
         self.setup_driver()
         self.login()
-        self.flagFirst = True
         # Поток для отслеживания клавиши экстренной остановки
         self.stop_flag = False
         self.monitor_stop_key()
@@ -37,8 +38,14 @@ class PixivDownloader:
         os.makedirs(self.output_folder, exist_ok=True)
         self.absolute_path = os.path.abspath(self.output_folder)  # Преобразуем в полный путь
 
+        # Проверка длины путей
+        if len(self.absolute_path) < len(self.output_folder):
+            raise Exception("Что-то пошло не так")
+
     def login(self):
         # Открываем главную страницу для установки куков
+        if not (self.username and self.password):
+            return
         self.driver.get("https://accounts.pixiv.net/login")
 
         # Вводим учетные данные
@@ -71,25 +78,26 @@ class PixivDownloader:
             action.context_click(image_element).perform()
 
             # Навигация в меню с помощью pyautogui
-            [pyautogui.press('down') for _ in range(8)]
+            [pyautogui.press('down') for _ in range(8 if self.username and self.password else 2)]
             pyautogui.press('enter')
 
-            if self.flagFirst:
+            if self.firstT_flag:
                 time.sleep(2)
 
                 # Ввод пути для сохранения изображения
                 [pyautogui.hotkey('shift', 'tab') for _ in range(5)]
                 pyautogui.press('enter')
-                time.sleep(0.5)
+                time.sleep(1)
                 pyautogui.write(self.absolute_path)
-                time.sleep(0.5)
+                time.sleep(1)
                 pyautogui.press('enter')
 
                 # Завершающие действия
                 [pyautogui.press('tab') for _ in range(8)]
-                time.sleep(0.5)
-                self.flagFirst = False
-            else: time.sleep(1)
+                time.sleep(1)
+                self.firstT_flag = False
+            else:
+                time.sleep(1.5)
             pyautogui.press('enter')
 
             print(f"Скачано изображение с {url}")
@@ -105,8 +113,11 @@ class PixivDownloader:
 
     def close(self):
         if self.driver:
-            self.driver.quit()
-            print("Браузер закрыт.")
+            try:
+                self.driver.quit()
+                print("Браузер закрыт.")
+            except Exception as e:
+                print(f"Ошибка при закрытии браузера: {e}")
 
     def __del__(self):
         # Закрываем драйвер при удалении объекта
@@ -127,8 +138,14 @@ class PixivDownloader:
 
 if __name__ == "__main__":
     # Данные для входа
-    username = "..."
-    password = "..."
+    # Создаем парсер
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--param1', type=str, help='Логин', default=None)
+    parser.add_argument('--param2', type=str, help='Пароль', default=None)
+    args = parser.parse_args()
+
+    username = args.param1
+    password = args.param2
 
     # Чтение ссылок из файла
     with open('urls.txt', 'r') as file:
