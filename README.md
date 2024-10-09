@@ -18,3 +18,5 @@ python --l "<login>" --p "<password>" --url "<url>"
 ## 📃TODO
 - Параллельное и т.п.
 - Переименовать репо
+
+![image](https://github.com/user-attachments/assets/69bf60bb-dbdb-4804-93c5-cf6cb5b241cd)
