@@ -7,12 +7,12 @@
   
 # 🏁 Using example
 ```py
-python --l "\<login\>" --p "\<password\>"
+python --l "<login>" --p "<password>"
 ```
 
 - Также можно использовать параметр --url для указания ссылки на коллекцию сохраненок
 ```py
-python --l "\<login\>" --p "\<password\>" --url "<url>"
+python --l "<login>" --p "<password>" --url "<url>"
 ```
 
 ## 📃TODO
